@@ -1,133 +1,89 @@
+// Face Mesh with Distorted Triangles
+// https://thecodingtrain.com/tracks/ml5js-beginners-guide/ml5/facemesh
+// https://youtu.be/R5UZsIwPbJA
+
 let video;
-let facemesh;
-let predictions = [];
-const indices = [409,270,269,267,0,37,39,40,185,61,146,91,181,84,17,314,405,321,375,291];
-const indices2 = [76,77,90,180,85,16,315,404,320,307,306,408,304,303,302,11,72,73,74,184];
+let faceMesh;
+let faces = [];
+let triangles;
 
-// --- FaceMesh Triangulated Mosaic Functionality ---
-let triangles = null;
+let angle = 0;
 
-// 取得三角形連接資訊（只需取得一次）
-function getTriangles(facemeshModel) {
-  if (facemeshModel && facemeshModel.triangulation) {
-    return facemeshModel.triangulation;
-  }
-  // ml5.js 沒有直接提供 getTriangles，這裡用 facemesh.triangulation
-  return null;
+function preload() {
+  // Initialize FaceMesh model with a maximum of one face
+  faceMesh = ml5.faceMesh({ maxFaces: 1 });
 }
 
-// 畫三角形馬賽克
-function drawFaceTriangles(keypoints, video) {
-  if (!triangles) {
-    // 取得三角形連接資訊
-    triangles = ml5.facemesh.triangulation;
-  }
-  if (!triangles) return;
-
-  video.loadPixels();
-  noStroke();
-  for (let i = 0; i < triangles.length; i += 3) {
-    let a = triangles[i];
-    let b = triangles[i + 1];
-    let c = triangles[i + 2];
-    let pa = keypoints[a];
-    let pb = keypoints[b];
-    let pc = keypoints[c];
-
-    // 計算三角形中心
-    let cx = (pa[0] + pb[0] + pc[0]) / 3;
-    let cy = (pa[1] + pb[1] + pc[1]) / 3;
-
-    // 取樣顏色
-    let ix = constrain(floor(cx), 0, video.width - 1);
-    let iy = constrain(floor(cy), 0, video.height - 1);
-    let idx = (ix + iy * video.width) * 4;
-    let pixels = video.pixels;
-    let rr = pixels[idx];
-    let gg = pixels[idx + 1];
-    let bb = pixels[idx + 2];
-
-    fill(rr, gg, bb);
-    beginShape();
-    vertex(pa[0], pa[1]);
-    vertex(pb[0], pb[1]);
-    vertex(pc[0], pc[1]);
-    endShape(CLOSE);
-  }
+function gotFaces(results) {
+  faces = results;
 }
 
 function setup() {
-  createCanvas(640, 480).position(
-    (windowWidth - 640) / 2,
-    (windowHeight - 480) / 2
-  );
+  createCanvas(640, 480, WEBGL);
   video = createCapture(VIDEO);
-  video.size(width, height);
   video.hide();
 
-  facemesh = ml5.facemesh(video, modelReady);
-  facemesh.on('predict', results => {
-    predictions = results;
-  });
-}
+  // Start detecting faces
+  faceMesh.detectStart(video, gotFaces);
 
-function modelReady() {
-  // 模型載入完成，可選擇顯示訊息
+  // Retrieve face mesh triangles for texture mapping
+  triangles = faceMesh.getTriangles();
+  textureMode(NORMAL);
 }
 
 function draw() {
-  image(video, 0, 0, width, height);
+  translate(-width / 2, -height / 2);
+  background(0);
 
-  if (predictions.length > 0) {
-    const keypoints = predictions[0].scaledMesh;
+  angle += 0.03;
 
-    // 先畫第一組紅色線
-    stroke(255, 0, 0);
-    strokeWeight(2);
-    noFill();
-    beginShape();
-    for (let i = 0; i < indices.length; i++) {
-      const idx = indices[i];
-      const [x, y] = keypoints[idx];
-      vertex(x, y);
+  if (faces.length > 0) {
+    let face = faces[0];
+
+    // Compute face center and maximum distance from center
+    let centerX = (face.box.xMin + face.box.xMax) / 2;
+    let centerY = (face.box.yMin + face.box.yMax) / 2;
+    let maxDist = dist(face.box.xMin, face.box.yMin, centerX, centerY);
+
+    for (let i = 0; i < faces.length; i++) {
+      let face = faces[i];
+      let keypointsOff = [];
+
+      // Apply distortion effect to each keypoint
+      for (let j = 0; j < face.keypoints.length; j++) {
+        let keypoint = face.keypoints[j];
+        let d = dist(keypoint.x, keypoint.y, centerX, centerY);
+
+        // Compute distortion factor based on distance and oscillation
+        let factor = map(d, 0, maxDist, 1, 0) * map(sin(angle), -1, 1, 0, 4);
+        let offX = (keypoint.x - centerX) * factor;
+        let offY = (keypoint.y - centerY) * factor;
+
+        keypointsOff[j] = { x: keypoint.x + offX, y: keypoint.y + offY };
+      }
+
+      // Apply video texture to distorted face mesh
+      texture(video);
+      stroke(255);
+      beginShape(TRIANGLES);
+
+      // Draw triangles with distorted keypoints
+      for (let i = 0; i < triangles.length; i++) {
+        let tri = triangles[i];
+        let [a, b, c] = tri;
+        let offA = keypointsOff[a];
+        let offB = keypointsOff[b];
+        let offC = keypointsOff[c];
+        let pointA = face.keypoints[a];
+        let pointB = face.keypoints[b];
+        let pointC = face.keypoints[c];
+
+        vertex(offA.x, offA.y, pointA.x / width, pointA.y / height);
+        vertex(offB.x, offB.y, pointB.x / width, pointB.y / height);
+        vertex(offC.x, offC.y, pointC.x / width, pointC.y / height);
+      }
+
+      endShape();
     }
-    endShape();
-
-    // 再畫第二組紅色線並填滿黃色
-    stroke(255, 0, 0);
-    strokeWeight(2);
-    fill(255, 255, 0, 200); // 半透明黃色
-    beginShape();
-    for (let i = 0; i < indices2.length; i++) {
-      const idx = indices2[i];
-      const [x, y] = keypoints[idx];
-      vertex(x, y);
-    }
-    endShape(CLOSE);
-
-    // 在第一組與第二組之間充滿綠色
-    fill(0, 255, 0, 150); // 半透明綠色
-    noStroke();
-    beginShape();
-    // 先畫第一組
-    for (let i = 0; i < indices.length; i++) {
-      const idx = indices[i];
-      const [x, y] = keypoints[idx];
-      vertex(x, y);
-    }
-    // 再畫第二組（反向，避免交錯）
-    for (let i = indices2.length - 1; i >= 0; i--) {
-      const idx = indices2[i];
-      const [x, y] = keypoints[idx];
-      vertex(x, y);
-    }
-    endShape(CLOSE);
-  }
-}
-
-// 按下 't' 顯示三角形馬賽克
-function keyPressed() {
-  if (key === 't' && predictions.length > 0) {
-    drawFaceTriangles(predictions[0].scaledMesh, video);
   }
 }
