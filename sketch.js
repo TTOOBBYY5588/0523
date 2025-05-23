@@ -82,6 +82,17 @@ function modelReady() {
   // 模型載入完成，可選擇顯示訊息
 }
 
+const leftEye = [
+  33, 7, 163, 144, 145, 153, 154, 155, 133, 246, 157, 158, 159, 160, 161, 162,
+  246, 243, 240, 239, 38, 37, 36, 35, 34, 33
+];
+
+// 新增右眼索引
+const rightEye = [
+  359,467,260,259,257,258,286,414,463,341,256,252,253,254,339,255,
+  263,466,388,387,386,385,384,398,362,382,381,380,374,373,390,249
+];
+
 function draw() {
   image(video, 0, 0, width, height);
 
@@ -130,7 +141,7 @@ function draw() {
     }
     endShape(CLOSE);
 
-    // 左眼藍色線條與圓點
+    // 左眼藍色線條與圓點特效
     stroke(0, 150, 255);
     strokeWeight(4);
     noFill();
@@ -142,13 +153,13 @@ function draw() {
       // 藍色圓點特效
       fill(0, 150, 255, 180);
       noStroke();
-      ellipse(x, y, 10, 10);
+      ellipse(x, y, 14, 14); // 放大圓點
       noFill();
       stroke(0, 150, 255);
     }
     endShape(CLOSE);
 
-    // 右眼紫色線條與圓點
+    // 右眼紫色線條與圓點特效
     stroke(180, 0, 255);
     strokeWeight(4);
     noFill();
@@ -160,10 +171,12 @@ function draw() {
       // 紫色圓點特效
       fill(180, 0, 255, 180);
       noStroke();
-      ellipse(x, y, 10, 10);
+      ellipse(x, y, 14, 14); // 放大圓點
       noFill();
       stroke(180, 0, 255);
     }
     endShape(CLOSE);
+
+    // 你可以在這裡加更多特效（如光暈、閃爍等）
   }
 }
