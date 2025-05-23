@@ -4,86 +4,84 @@
 
 let video;
 let faceMesh;
-let faces = [];
+let predictions = [];
+let angle = 0;
 let triangles;
 
-let angle = 0;
+function setup() {
+  createCanvas(640, 480); // 2D 畫布
+  video = createCapture(VIDEO);
+  video.size(width, height);
+  video.hide();
 
-function preload() {
-  // Initialize FaceMesh model with a maximum of one face
-  faceMesh = ml5.faceMesh({ maxFaces: 1 });
+  faceMesh = ml5.facemesh(video, modelReady);
+  faceMesh.on('predict', gotFaces);
+
+  // 取得三角形索引
+  triangles = ml5.facemesh.triangulation;
+}
+
+function modelReady() {
+  console.log('FaceMesh ready!');
 }
 
 function gotFaces(results) {
-  faces = results;
-}
-
-function setup() {
-  createCanvas(640, 480, WEBGL);
-  video = createCapture(VIDEO);
-  video.hide();
-
-  // Start detecting faces
-  faceMesh.detectStart(video, gotFaces);
-
-  // Retrieve face mesh triangles for texture mapping
-  triangles = faceMesh.getTriangles();
-  textureMode(NORMAL);
+  predictions = results;
 }
 
 function draw() {
-  translate(-width / 2, -height / 2);
   background(0);
+  image(video, 0, 0, width, height);
 
   angle += 0.03;
 
-  if (faces.length > 0) {
-    let face = faces[0];
+  if (predictions.length > 0) {
+    let face = predictions[0];
+    let keypoints = face.scaledMesh;
 
-    // Compute face center and maximum distance from center
-    let centerX = (face.box.xMin + face.box.xMax) / 2;
-    let centerY = (face.box.yMin + face.box.yMax) / 2;
-    let maxDist = dist(face.box.xMin, face.box.yMin, centerX, centerY);
-
-    for (let i = 0; i < faces.length; i++) {
-      let face = faces[i];
-      let keypointsOff = [];
-
-      // Apply distortion effect to each keypoint
-      for (let j = 0; j < face.keypoints.length; j++) {
-        let keypoint = face.keypoints[j];
-        let d = dist(keypoint.x, keypoint.y, centerX, centerY);
-
-        // Compute distortion factor based on distance and oscillation
-        let factor = map(d, 0, maxDist, 1, 0) * map(sin(angle), -1, 1, 0, 4);
-        let offX = (keypoint.x - centerX) * factor;
-        let offY = (keypoint.y - centerY) * factor;
-
-        keypointsOff[j] = { x: keypoint.x + offX, y: keypoint.y + offY };
-      }
-
-      // Apply video texture to distorted face mesh
-      texture(video);
-      stroke(255);
-      beginShape(TRIANGLES);
-
-      // Draw triangles with distorted keypoints
-      for (let i = 0; i < triangles.length; i++) {
-        let tri = triangles[i];
-        let [a, b, c] = tri;
-        let offA = keypointsOff[a];
-        let offB = keypointsOff[b];
-        let offC = keypointsOff[c];
-        let pointA = face.keypoints[a];
-        let pointB = face.keypoints[b];
-        let pointC = face.keypoints[c];
-
-        vertex(offA.x, offA.y, pointA.x / width, pointA.y / height);
-        vertex(offB.x, offB.y, pointB.x / width, pointB.y / height);
-        vertex(offC.x, offC.y, pointC.x / width, pointC.y / height);
-      }
-
-      endShape();
+    // 計算臉中心
+    let centerX = 0,
+      centerY = 0;
+    for (let i = 0; i < keypoints.length; i++) {
+      centerX += keypoints[i][0];
+      centerY += keypoints[i][1];
     }
+    centerX /= keypoints.length;
+    centerY /= keypoints.length;
+
+    // 計算最大距離
+    let maxDist = 0;
+    for (let i = 0; i < keypoints.length; i++) {
+      let d = dist(keypoints[i][0], keypoints[i][1], centerX, centerY);
+      if (d > maxDist) maxDist = d;
+    }
+
+    // 產生扭曲後的點
+    let keypointsOff = [];
+    for (let j = 0; j < keypoints.length; j++) {
+      let [x, y] = keypoints[j];
+      let d = dist(x, y, centerX, centerY);
+      let factor = map(d, 0, maxDist, 1, 0) * map(sin(angle), -1, 1, 0, 4);
+      let offX = (x - centerX) * factor;
+      let offY = (y - centerY) * factor;
+      keypointsOff[j] = [x + offX, y + offY];
+    }
+
+    // 畫三角形
+    noFill();
+    stroke(255);
+    beginShape(TRIANGLES);
+    for (let i = 0; i < triangles.length; i += 3) {
+      let a = triangles[i];
+      let b = triangles[i + 1];
+      let c = triangles[i + 2];
+      let offA = keypointsOff[a];
+      let offB = keypointsOff[b];
+      let offC = keypointsOff[c];
+      vertex(offA[0], offA[1]);
+      vertex(offB[0], offB[1]);
+      vertex(offC[0], offC[1]);
+    }
+    endShape();
   }
 }
