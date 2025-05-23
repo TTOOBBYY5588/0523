@@ -129,5 +129,41 @@ function draw() {
       vertex(x, y);
     }
     endShape(CLOSE);
+
+    // 左眼藍色線條與圓點
+    stroke(0, 150, 255);
+    strokeWeight(4);
+    noFill();
+    beginShape();
+    for (let i = 0; i < leftEye.length; i++) {
+      const idx = leftEye[i];
+      const [x, y] = keypoints[idx];
+      vertex(x, y);
+      // 藍色圓點特效
+      fill(0, 150, 255, 180);
+      noStroke();
+      ellipse(x, y, 10, 10);
+      noFill();
+      stroke(0, 150, 255);
+    }
+    endShape(CLOSE);
+
+    // 右眼紫色線條與圓點
+    stroke(180, 0, 255);
+    strokeWeight(4);
+    noFill();
+    beginShape();
+    for (let i = 0; i < rightEye.length; i++) {
+      const idx = rightEye[i];
+      const [x, y] = keypoints[idx];
+      vertex(x, y);
+      // 紫色圓點特效
+      fill(180, 0, 255, 180);
+      noStroke();
+      ellipse(x, y, 10, 10);
+      noFill();
+      stroke(180, 0, 255);
+    }
+    endShape(CLOSE);
   }
 }
