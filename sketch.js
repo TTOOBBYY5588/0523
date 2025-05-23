@@ -56,6 +56,13 @@ function drawFaceTriangles(keypoints, video) {
   }
 }
 
+// 按下 't' 顯示三角形馬賽克
+function keyPressed() {
+  if (key === 't' && predictions.length > 0) {
+    drawFaceTriangles(predictions[0].scaledMesh, video);
+  }
+}
+
 function setup() {
   createCanvas(640, 480).position(
     (windowWidth - 640) / 2,
@@ -122,12 +129,5 @@ function draw() {
       vertex(x, y);
     }
     endShape(CLOSE);
-  }
-}
-
-// 按下 't' 顯示三角形馬賽克
-function keyPressed() {
-  if (key === 't' && predictions.length > 0) {
-    drawFaceTriangles(predictions[0].scaledMesh, video);
   }
 }
